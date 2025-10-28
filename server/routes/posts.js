@@ -1,30 +1,49 @@
-// server/routes/posts.js (Changes in POST /api/posts route)
+import { Router } from 'express';
+import { body, validationResult } from 'express-validator';
 
-import express from 'express';
-import { body, validationResult, param } from 'express-validator';
-import postController from '../controllers/postController.js'; 
-import protect from '../middleware/authMiddleware.js'; 
-import { uploadSingleImage } from '../middleware/uploadMiddleware.js'; // <-- NEW IMPORT
+// FIX: Change to wildcard import (* as) to correctly import all named exports 
+// from the controller, resolving the "does not provide an export named 'default'" error.
+import * as postController from '../controllers/postController.js'; 
+import { protect } from '../middleware/authMiddleware.js';
+import { uploadSingleImage } from '../middleware/uploadMiddleware.js'; 
 
-// ... (handleValidationErrors and router setup)
+const router = Router();
 
-// POST /api/posts - Create a new blog post
+// Middleware to handle validation errors (if any occur before the controller)
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  next();
+};
+
+// POST /api/posts - Create a new blog post with a featured image
 router.post(
   '/',
-  protect, 
-  uploadSingleImage, // <-- ADD MULTER MIDDLEWARE HERE
+  protect, // Ensure the user is logged in
+  uploadSingleImage, // Handle the file upload (sets req.file and parses req.body)
   [
-    // NOTE: You must now remove 'content' validation here, as Multer changes req.body
-    // You should manually validate these fields in the controller if needed
-    body('title') // Keep this validation if you want it to run before the file upload
+    // Validate required text fields that came from the form submission (req.body)
+    body('title')
+        .trim()
         .notEmpty().withMessage('Title is required.'),
-    body('category') // Keep this validation
-        .isMongoId().withMessage('Category ID is required and must be a valid ID.'),
+    body('category')
+        .optional({ checkFalsy: true }) // Allow category to be optional/empty string
+        .isMongoId().withMessage('Category must be a valid ID if provided.'),
+    // Note: 'content' can also be validated here if desired
   ],
   handleValidationErrors,
-  postController.createPost
+  // Use the imported object to access the function: postController.createPost
+  postController.createPost 
 );
 
-// ... (PUT and DELETE routes remain the same for now)
+// Example GET route for completeness (assuming getAllPosts is also a named export)
+router.get('/', postController.getAllPosts);
 
+// Example GET by ID route for completeness
+router.get('/:id', postController.getPostById);
+
+
+// Export the router
 export default router;

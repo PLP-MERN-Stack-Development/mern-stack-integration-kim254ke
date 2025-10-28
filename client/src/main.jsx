@@ -1,17 +1,17 @@
-// client/src/main.jsx (Example)
+// client/src/main.jsx
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import App from "./App";
+import "./index.css";
 
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import App from './App.jsx';
-import { AuthProvider } from './context/AuthContext'; // <-- NEW IMPORT
-
-ReactDOM.createRoot(document.getElementById('root')).render(
+ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
-      <AuthProvider> {/* <-- WRAP APP WITH PROVIDER */}
+      <AuthProvider>
         <App />
       </AuthProvider>
     </BrowserRouter>
-  </React.StrictMode>,
+  </React.StrictMode>
 );

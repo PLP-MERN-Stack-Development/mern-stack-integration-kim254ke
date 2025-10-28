@@ -2,16 +2,12 @@ import User from '../models/user.js';
 import jwt from 'jsonwebtoken';
 import asyncHandler from 'express-async-handler'; // Recommended for handling async Express errors
 
-// Helper function for consistent error responses (use your existing one or this)
-const sendError = (res, statusCode, message) => {
-  return res.status(statusCode).json({ success: false, message });
-};
-
 // ------------------------------------------------
 // 1. JWT Generator (Secret MUST be in .env)
 // ------------------------------------------------
 const generateToken = (id) => {
   // Use a secret from your environment variables
+  // NOTE: Ensure process.env.JWT_SECRET is accessible (e.g., using 'dotenv' package)
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: '30d', // Token valid for 30 days
   });
@@ -20,18 +16,23 @@ const generateToken = (id) => {
 // @desc    Register a new user
 // @route   POST /api/users/register
 // @access  Public
-const registerUser = asyncHandler(async (req, res) => {
+export const registerUser = asyncHandler(async (req, res) => {
   const { username, email, password } = req.body;
 
-  // 1. Check if user already exists
+  // 1. Validation check for required fields
+  if (!username || !email || !password) {
+    res.status(400);
+    throw new Error('Please enter all required fields: username, email, and password.');
+  }
+
+  // 2. Check if user already exists
   const userExists = await User.findOne({ email });
   if (userExists) {
-    // If you're using express-async-handler, you can throw an Error
     res.status(400);
     throw new Error('User with this email already exists.');
   }
 
-  // 2. Create the new user (password is hashed in the User model pre-save hook)
+  // 3. Create the new user (password is hashed in the User model pre-save hook)
   const user = await User.create({
     username,
     email,
@@ -39,6 +40,7 @@ const registerUser = asyncHandler(async (req, res) => {
   });
 
   if (user) {
+    // 4. Successful registration response
     res.status(201).json({
       success: true,
       message: 'User registered successfully.',
@@ -58,14 +60,21 @@ const registerUser = asyncHandler(async (req, res) => {
 // @desc    Authenticate user & get token
 // @route   POST /api/users/login
 // @access  Public
-const loginUser = asyncHandler(async (req, res) => {
+export const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
+  
+  // 1. Validation check for required fields
+  if (!email || !password) {
+    res.status(400);
+    throw new Error('Please enter email and password.');
+  }
 
-  // 1. Find the user by email
+  // 2. Find the user by email
   const user = await User.findOne({ email });
 
-  // 2. Check if user exists AND if the password matches (using the model method)
+  // 3. Check if user exists AND if the password matches (using the model method)
   if (user && (await user.matchPassword(password))) {
+    // 4. Successful login response
     res.json({
       success: true,
       message: 'Login successful.',
@@ -82,7 +91,5 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 });
 
-export default {
-  registerUser,
-  loginUser,
-};
+// REMOVED: export default { registerUser, loginUser };
+// The functions are now exported directly using `export const`

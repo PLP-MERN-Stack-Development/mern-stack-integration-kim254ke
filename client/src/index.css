@@ -1,6 +1,78 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* client/src/index.css */
 
-body { @apply bg-gray-50 text-gray-800; }
-.container { @apply max-w-5xl mx-auto px-4; }
+/* Tailwind v4 import — must come first */
+@import "tailwindcss";
+
+/* App-level utility classes */
+:root {
+  --transition-fast: 180ms;
+  --card-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+/* Smooth background/color transitions for theme switching */
+html, body, #root {
+  height: 100%;
+  transition: background-color var(--transition-fast) ease, color var(--transition-fast) ease;
+}
+
+/* A soft container width */
+.container {
+  max-width: 1120px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Small visual helpers */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium;
+}
+
+/* Card */
+.card {
+  box-shadow: var(--card-shadow);
+  border-radius: 14px;
+  transition: transform 240ms ease, box-shadow 240ms ease;
+  will-change: transform;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.12);
+}
+
+/* line-clamp fallback when plugin not available */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* dark mode utilities */
+:root[data-theme="dark"] {
+  --bg: #0b1220;
+  --panel: #0f1724;
+  --muted: #a3b0bf;
+}
+
+:root[data-theme="light"] {
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --muted: #6b7280;
+}
+
+/* apply theme variables */
+body {
+  background-color: var(--bg);
+  color: var(--panel);
+}
+
+/* small responsive tweaks */
+@media (min-width: 1024px) {
+  .container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}

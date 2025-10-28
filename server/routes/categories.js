@@ -1,6 +1,8 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
-import categoryController from '../controllers/categoryController.js'; // Note the .js extension
+// FIX: Changed from 'import categoryController from ...' to wildcard import
+import * as categoryController from '../controllers/categoryController.js'; 
+
 
 const router = express.Router();
 

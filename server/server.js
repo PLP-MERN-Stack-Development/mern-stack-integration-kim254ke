@@ -1,26 +1,48 @@
-// server/server.js (Add the path and the static middleware)
-
 import express from "express";
-import path from 'path'; // <-- NEW IMPORT
-// ... other imports
+import cors from "cors";
+import morgan from "morgan";
+import path from "path";
+import dotenv from "dotenv";
+import connectDB from "./config/db.js"; // ✅ use dedicated DB connection file
 
-// ... dotenv.config()
+// --- Load environment variables ---
+dotenv.config();
 
+// --- Initialize app ---
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-// ... Middleware (express.json(), cors(), morgan())
+// --- Connect to MongoDB ---
+connectDB();
 
-// ------------------------------------
-// Static Folder Setup (Makes uploads public)
-// ------------------------------------
-// Resolve the current directory name
-const __dirname = path.resolve(); 
-// Serve files from the 'server/uploads' directory at the '/uploads' URL path
-app.use('/uploads', express.static(path.join(__dirname, 'server/uploads'))); 
-// ------------------------------------
+// --- Middleware ---
+app.use(cors());
+app.use(express.json());
+app.use(morgan("dev"));
 
-// ... API ROUTES
+// --- Static folder setup for uploads ---
+const __dirname = path.resolve();
+app.use("/uploads", express.static(path.join(__dirname, "server/uploads")));
 
-// ... ERROR HANDLING MIDDLEWARE
+// --- Routes Imports ---
+import userRoutes from "./routes/userRoutes.js";
+import categoryRoutes from "./routes/categories.js";
+import postRoutes from "./routes/posts.js";
+import commentRoutes from "./routes/comments.js";
 
-// ... MongoDB connection and app.listen
+// --- Route Configuration ---
+app.use("/api/auth", userRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/comments", commentRoutes);
+
+// --- Root Route ---
+app.get("/", (req, res) => {
+  res.send("✅ Blog App Backend is running successfully...");
+});
+
+// --- Start Server ---
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});

@@ -1,16 +1,14 @@
-// server/config/db.js
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
+import colors from "colors"; // Optional, install with: npm i colors
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      // mongoose 7+ uses sensible defaults
-    });
-    console.log(`MongoDB connected: ${conn.connection.host}`);
+    const conn = await mongoose.connect(process.env.MONGO_URI);
+    console.log(colors.green(`✅ MongoDB Connected: ${conn.connection.host}`));
   } catch (err) {
-    console.error('MongoDB connection error:', err.message);
+    console.error(colors.red(`❌ MongoDB Connection Error: ${err.message}`));
     process.exit(1);
   }
 };
 
-module.exports = connectDB;
+export default connectDB;

@@ -1,36 +1,27 @@
-// client/src/App.jsx (Example Router Configuration)
+// client/src/App.jsx
+import React from "react";
+import { Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import Home from "./pages/Home";
 
-import { Routes, Route } from 'react-router-dom';
-// ... other component imports
-import Home from './pages/Home';
-import PostView from './pages/PostView';
-import CreatePost from './pages/CreatePost';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ProtectedRoute from './pages/ProtectedRoute'; // <-- NEW IMPORT
-
-function App() {
-  return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/post/:id" element={<PostView />} />
-      
-      {/* 🔒 PROTECTED ROUTE */}
-      <Route 
-        path="/create-post" 
-        element={
-          <ProtectedRoute>
-            <CreatePost /> {/* This component is now protected */}
-          </ProtectedRoute>
-        } 
-      />
-
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      {/* Add 404 handler here */}
-      <Route path="*" element={<div>404 Not Found</div>} /> 
-    </Routes>
-  );
+// Temporary placeholder pages
+function CreatePost() {
+  return <div className="container py-10">Create Post (coming soon)</div>;
 }
 
-export default App;
+function PostView() {
+  return <div className="container py-10">Single Post (coming soon)</div>;
+}
+
+export default function App() {
+  return (
+    <>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/create" element={<CreatePost />} />
+        <Route path="/post/:id" element={<PostView />} />
+      </Routes>
+    </>
+  );
+}

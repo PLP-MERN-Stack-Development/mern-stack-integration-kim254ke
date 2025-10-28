@@ -7,7 +7,7 @@ const PostSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      unique: true, // Assuming titles should be unique
+      unique: true,
     },
     slug: {
       type: String,
@@ -21,22 +21,29 @@ const PostSchema = new mongoose.Schema(
     },
     // Relationship to Category Model
     category: {
-      // The type must be ObjectId, referencing the Category model
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category', // 'Category' must match the model name in Category.js
+      ref: 'Category', 
       required: true,
     },
-    // Metadata
+    // The author is now the User ID from the User model (for authentication)
     author: {
-      type: String, // You can change this to a User ObjectId later for auth
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User', 
       required: true,
-      default: 'Admin',
     },
+    // Featured Image for Task 5
     featuredImage: {
-      type: String, // URL to the image, for Task 5
+      type: String, 
       default: 'https://placehold.co/800x450/e9ecef/212529?text=Featured+Image',
     },
-    // Status flag (e.g., for drafts)
+    // Comments Array (New Addition for Task 5)
+    comments: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Comment', // Links to the new Comment model
+      },
+    ],
+    // Status flag
     status: {
       type: String,
       enum: ['draft', 'published'],

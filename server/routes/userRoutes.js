@@ -1,5 +1,6 @@
 import express from 'express';
-import userController from '../controllers/userController.js';
+// FIX: Changed from 'import userController from ...' to wildcard import
+import * as userController from '../controllers/userController.js';
 
 const router = express.Router();
 
