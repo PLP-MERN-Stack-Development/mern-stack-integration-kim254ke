@@ -1,25 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-export default function useApi(fn, deps = [], initial = null) {
-  const [data, setData] = useState(initial);
-  const [loading, setLoading] = useState(initial === null);
+export default function useApi(apiFunc, deps = []) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fn();
-        if (!cancelled) setData(res);
-      } catch (err) {
-        if (!cancelled) setError(err);
-      } finally {
-        if (!cancelled) setLoading(false);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await apiFunc();
+      // Handle both possible shapes of response
+      if (result && typeof result === 'object' && 'data' in result) {
+        setData(result.data);
+      } else {
+        setData(result);
       }
-    })();
-    return () => { cancelled = true; };
+    } catch (err) {
+      console.error('❌ useApi fetch error:', err);
+      setError(err.message || 'An error occurred while fetching data');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiFunc]);
+
+  useEffect(() => {
+    fetchData();
   }, deps);
 
-  return { data, setData, loading, error };
+  return { data, loading, error, refetch: fetchData };
 }

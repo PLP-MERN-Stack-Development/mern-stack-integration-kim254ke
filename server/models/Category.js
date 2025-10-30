@@ -1,15 +1,16 @@
+// server/models/Category.js - This MUST be the Mongoose Model
+
 import mongoose from 'mongoose';
 
 const CategorySchema = new mongoose.Schema(
   {
-    // The name of the category (e.g., 'Technology', 'Travel').
     name: {
       type: String,
       required: true,
       unique: true,
       trim: true,
     },
-    // A slug for clean URLs (e.g., 'technology' or 'travel').
+    // Adding a slug for easy URL usage and query filtering
     slug: {
       type: String,
       required: true,
@@ -18,9 +19,18 @@ const CategorySchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // Automatically adds createdAt and updatedAt fields
+    timestamps: true,
   }
 );
 
+// Middleware to automatically create the slug before saving
+CategorySchema.pre('save', function (next) {
+  if (this.isModified('name')) {
+    this.slug = this.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-*|-*$/g, '');
+  }
+  next();
+});
+
 const Category = mongoose.model('Category', CategorySchema);
-export default Category;
+
+export default Category; // ✅ Export the Mongoose Model

@@ -1,146 +1,289 @@
-// client/src/pages/Home.jsx
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { postService, categoryService } from "../services/api";
-import useApi from "../hooks/useApi";
-import AnimatedCard from "../components/AnimatedCard";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { postService, categoryService } from '../services/api.js';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function Home() {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState(null);
+const Home = () => {
+  const [posts, setPosts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const { data: categories } = useApi(() => categoryService.getAllCategories(), []);
-  const { data, loading, error } = useApi(
-    () => postService.getAllPosts(page, 6, selectedCategory, search),
-    [page, selectedCategory, search]
-  );
+  const POSTS_PER_PAGE = 6;
 
-  const posts = data?.posts || [];
-  const totalPages = data?.pages || 1;
+  // Load all posts with filters
+  const loadPosts = useCallback(async (categorySlug, search, page) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = {
+        category: categorySlug === 'All' ? '' : categorySlug,
+        search: search,
+        page: page,
+        limit: POSTS_PER_PAGE
+      };
 
-  const getImageSrc = (post) => {
-    if (post.featuredImage && post.featuredImage.startsWith("http")) return post.featuredImage;
-    return post.featuredImage || "https://placehold.co/800x450/e9ecef/212529?text=Featured+Image";
+      const response = await postService.getAllPosts(params);
+      
+      // Handle different response formats
+      if (response.data) {
+        setPosts(response.data);
+        setTotalPages(response.pagination?.pages || 1);
+      } else if (Array.isArray(response)) {
+        setPosts(response);
+        setTotalPages(1);
+      } else {
+        setPosts([]);
+        setTotalPages(1);
+      }
+    } catch (err) {
+      console.error("Failed to load posts:", err);
+      setError(err.message || 'Failed to load posts.');
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load categories on mount
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await categoryService.getAllCategories();
+        const categoriesData = data.data || data;
+        setCategories([{ name: 'All', slug: 'All' }, ...categoriesData]);
+      } catch (err) {
+        console.error("Failed to load categories:", err);
+      }
+    };
+    loadCategories();
+  }, []);
+
+  // Load posts whenever filters change
+  useEffect(() => {
+    loadPosts(activeCategory, searchTerm, currentPage);
+  }, [activeCategory, searchTerm, currentPage, loadPosts]);
+
+  const handleCategoryClick = (slug) => {
+    setActiveCategory(slug);
+    setCurrentPage(1); // Reset to first page
   };
 
-  const featured = posts.slice(0, 2);
-  const regular = posts.slice(2);
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset to first page
+  };
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Helper to construct image URL
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return 'https://placehold.co/800x450/e9ecef/212529?text=Featured+Image';
+    if (imagePath.startsWith('http')) return imagePath;
+    return `http://localhost:5000${imagePath}`;
+  };
+
+  if (error) {
+    return (
+      <div className="text-center py-10 text-red-600 font-medium">
+        Error loading data: {error}
+      </div>
+    );
+  }
+
+  // Category Filter Buttons
+  const CategoryFilters = () => (
+    <div className="flex flex-wrap gap-2 mb-6 items-center">
+      {categories.length === 0 ? (
+        <p className="text-sm text-gray-500">No categories loaded.</p>
+      ) : (
+        categories.map((cat) => (
+          <button
+            key={cat.slug}
+            onClick={() => handleCategoryClick(cat.slug)}
+            className={`
+              px-4 py-2 rounded-full font-semibold transition duration-150 shadow-sm
+              ${
+                activeCategory === cat.slug
+                  ? 'bg-indigo-600 text-white shadow-indigo-400'
+                  : 'bg-white text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200'
+              }
+            `}
+          >
+            {cat.name}
+          </button>
+        ))
+      )}
+    </div>
+  );
+
+  // Search Bar
+  const SearchBar = () => (
+    <div className="mb-8">
+      <div className="relative max-w-xl mx-auto">
+        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={handleSearchChange}
+          placeholder="Search posts by title or content..."
+          className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+        />
+      </div>
+    </div>
+  );
+
+  // Pagination Controls
+  const Pagination = () => {
+    if (totalPages <= 1) return null;
+
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage < maxVisiblePages - 1) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-8">
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronLeft size={20} />
+        </button>
+
+        {startPage > 1 && (
+          <>
+            <button
+              onClick={() => handlePageChange(1)}
+              className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
+            >
+              1
+            </button>
+            {startPage > 2 && <span className="px-2">...</span>}
+          </>
+        )}
+
+        {pageNumbers.map((page) => (
+          <button
+            key={page}
+            onClick={() => handlePageChange(page)}
+            className={`px-4 py-2 rounded-lg border transition duration-150 ${
+              currentPage === page
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {page}
+          </button>
+        ))}
+
+        {endPage < totalPages && (
+          <>
+            {endPage < totalPages - 1 && <span className="px-2">...</span>}
+            <button
+              onClick={() => handlePageChange(totalPages)}
+              className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
+            >
+              {totalPages}
+            </button>
+          </>
+        )}
+
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronRight size={20} />
+        </button>
+      </div>
+    );
+  };
 
   return (
-    <main className="min-h-screen py-8">
-      <div className="container">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl sm:text-5xl font-extrabold mb-2 text-gray-900 dark:text-gray-100">Latest Blog Posts</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Curated posts from your MERN blog — search and filter to explore.</p>
-        </div>
+    <div className="container mx-auto p-4">
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">Latest Posts</h2>
 
-        {/* Search & Filter */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-8 items-center justify-center">
-          <input
-            className="w-full sm:w-2/3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 shadow-sm focus:ring-2 focus:ring-blue-500"
-            placeholder="Search posts..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          />
-          <select
-            className="w-full sm:w-1/3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 shadow-sm"
-            value={selectedCategory || ""}
-            onChange={(e) => { setSelectedCategory(e.target.value || null); setPage(1); }}
-          >
-            <option value="">All Categories</option>
-            {categories?.map((c) => <option value={c._id} key={c._id}>{c.name}</option>)}
-          </select>
-        </div>
+      <SearchBar />
+      <CategoryFilters />
 
-        {/* Featured */}
-        {featured.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {featured.map((p, idx) => (
-              <AnimatedCard key={p._id} i={idx} className="overflow-hidden h-64 relative">
-                <Link to={`/post/${p._id}`}>
-                  <img src={getImageSrc(p)} alt={p.title} className="w-full h-64 object-cover transform hover:scale-105 transition-transform" />
-                  <div className="p-5">
-                    <span className="inline-block bg-blue-600 text-white text-xs px-3 py-1 rounded-full mb-2">{p.category?.name || "General"}</span>
-                    <h2 className="text-2xl font-bold mt-2 text-gray-900 dark:text-gray-100">{p.title}</h2>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-2 line-clamp-3">{p.content?.slice(0, 120)}...</p>
+      {loading ? (
+        <div className="text-center py-20">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+          <p className="mt-4 text-gray-600">Loading posts...</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {posts.length > 0 ? (
+              posts.map((post) => (
+                <Link
+                  key={post._id}
+                  to={`/post/${post._id}`}
+                  className="bg-white rounded-lg shadow-lg hover:shadow-xl transition duration-200 overflow-hidden block"
+                >
+                  <img
+                    src={getImageUrl(post.featuredImage)}
+                    alt={post.title}
+                    className="w-full h-48 object-cover"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://placehold.co/800x450/e9ecef/212529?text=Featured+Image';
+                    }}
+                  />
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold text-indigo-600 mb-2 line-clamp-2">
+                      {post.title}
+                    </h3>
+                    <p className="text-gray-600 mb-4 line-clamp-3">
+                      {post.content ? post.content.substring(0, 120) + '...' : ''}
+                    </p>
+                    <div className="flex items-center justify-between text-sm text-gray-500">
+                      <span className="italic">
+                        {post.category?.name || 'Uncategorized'}
+                      </span>
+                      <span>
+                        By {post.author?.username || 'Anonymous'}
+                      </span>
+                    </div>
                   </div>
                 </Link>
-              </AnimatedCard>
-            ))}
+              ))
+            ) : (
+              <div className="col-span-full text-center py-20">
+                <p className="text-gray-500 text-lg">
+                  {searchTerm || activeCategory !== 'All'
+                    ? 'No posts found matching your criteria.'
+                    : 'No posts available yet.'}
+                </p>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Loading / Error */}
-        {error && (
-  <div className="text-center py-10 text-red-500">
-    {error.message || "Something went wrong while fetching data."}
-  </div>
-)}
-
-{!loading && posts.length === 0 && (
-  <div className="text-center py-10 text-gray-600 dark:text-gray-400">
-    No posts found.
-  </div>
-)}
-
-        {/* Grid */}
-        <AnimatePresence>
-          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {regular.map((p, idx) => (
-              <motion.div
-                key={p._id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45, delay: idx * 0.05 }}
-                className="card bg-white dark:bg-gray-800 overflow-hidden"
-              >
-                <Link to={`/post/${p._id}`}>
-                  <img src={getImageSrc(p)} alt={p.title} className="w-full h-44 object-cover group-hover:scale-105 transition-transform" />
-                </Link>
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-blue-600 font-semibold">{p.category?.name || "General"}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(p.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  <h3 className="text-lg font-semibold mb-1 text-gray-900 dark:text-gray-100">
-                    <Link to={`/post/${p._id}`}>{p.title}</Link>
-                  </h3>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 mb-3">{p.content?.slice(0, 140)}...</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">By {p.author?.username || "Admin"}</span>
-                    <Link to={`/post/${p._id}`} className="text-sm text-blue-600 font-semibold">Read →</Link>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-4 mt-8">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className={`btn ${page === 1 ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-blue-600 text-white shadow"}`}
-            >
-              Previous
-            </button>
-            <div className="text-sm text-gray-700 dark:text-gray-300">Page {page} of {totalPages}</div>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className={`btn ${page === totalPages ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-blue-600 text-white shadow"}`}
-            >
-              Next
-            </button>
-          </div>
-        )}
-      </div>
-    </main>
+          <Pagination />
+        </>
+      )}
+    </div>
   );
-}
+};
+
+export default Home;

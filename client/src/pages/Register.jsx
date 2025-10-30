@@ -1,40 +1,115 @@
-// /src/pages/Register.jsx (New Component)
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { authService } from '../services/api'; 
 
-import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
-// The import path must match the new location of your context file
-import { useAuth } from '../context/AuthContext'; 
+const Register = () => {
+    // ✅ FIX 1: Changed state initialization from 'name' to 'username'
+    const [formData, setFormData] = useState({ username: '', email: '', password: '' }); 
+    const [error, setError] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const navigate = useNavigate();
+    const { login: contextLogin, isAuthenticated } = useAuth(); // Renamed login to contextLogin for clarity
 
-export default function Register() { // <--- REQUIRED: Default Export
-  const { register, handleSubmit } = useForm();
-  const nav = useNavigate();
-  // Renaming 'register' from useAuth to avoid conflict with react-hook-form's 'register'
-  const { register: authRegister } = useAuth(); 
-  const [error, setError] = useState(null);
+    useEffect(() => {
+        // Redirect if already logged in
+        if (isAuthenticated) navigate('/');
+    }, [isAuthenticated, navigate]);
 
-  const onSubmit = async (vals) => {
-    setError(null);
-    try {
-      // Call the registration logic from your AuthContext
-      await authRegister(vals.username, vals.email, vals.password);
-      nav('/');
-    } catch (err) {
-      // The structure of the error object may vary based on your API
-      setError(err.response?.data?.message || 'Registration failed. Please check your details.');
-    }
-  };
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
-  return (
-    <div className="max-w-md mx-auto p-6 bg-white shadow-md rounded-lg">
-      <h2 className="text-2xl font-bold mb-4">Register Account</h2>
-      {error && <p className="text-red-500 mb-3 p-2 border border-red-300 rounded">{error}</p>}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-        <input {...register('username')} type="text" placeholder="Username" className="w-full p-2 border rounded" required />
-        <input {...register('email')} type="email" placeholder="Email" className="w-full p-2 border rounded" required />
-        <input {...register('password')} type="password" placeholder="Password" className="w-full p-2 border rounded" required />
-        <button type="submit" className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">Register</button>
-      </form>
-    </div>
-  );
-}
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError(null);
+        setIsSubmitting(true);
+      
+        try {
+          // Send payload with correct keys
+          const response = await authService.registerUser({
+            username: formData.username,
+            email: formData.email,
+            password: formData.password,
+          });
+      
+          // ✅ Your backend returns: { success, data: { user, token } }
+          const { user, token } = response.data; 
+      
+          if (!user || !token) {
+            throw new Error("Invalid user data received from server.");
+          }
+      
+          // Log the user in using AuthContext
+          contextLogin(user, token);
+      
+          navigate('/');
+        } catch (err) {
+          console.error("Registration failed:", err);
+          setError(
+            err.response?.data?.message || 
+            err.message || 
+            'Registration failed. Please try again.'
+          );
+        } finally {
+          setIsSubmitting(false);
+        }
+      };
+      
+    
+
+    return (
+        <div className="w-full max-w-md mx-auto mt-10 p-8 bg-white shadow-xl rounded-xl">
+            <h2 className="text-3xl font-bold text-center text-blue-600 mb-6">Register</h2>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <input
+                    type="text"
+                    name="username" // ✅ FIX 3: Changed name attribute to 'username'
+                    placeholder="Username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    required
+                    className="w-full border rounded-md px-3 py-2"
+                />
+                <input
+                    type="email"
+                    name="email"
+                    placeholder="Email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    className="w-full border rounded-md px-3 py-2"
+                />
+                <input
+                    type="password"
+                    name="password"
+                    placeholder="Password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    className="w-full border rounded-md px-3 py-2"
+                />
+
+                {error && <p className="text-red-500 text-sm">{error}</p>}
+
+                <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
+                >
+                    {isSubmitting ? 'Registering...' : 'Register'}
+                </button>
+            </form>
+
+            <p className="text-center mt-4 text-sm">
+                Already have an account?{' '}
+                <Link to="/login" className="text-blue-600 hover:underline">
+                    Log in
+                </Link>
+            </p>
+        </div>
+    );
+};
+
+export default Register;

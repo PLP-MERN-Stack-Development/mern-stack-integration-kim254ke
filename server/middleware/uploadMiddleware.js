@@ -1,40 +1,39 @@
-import multer from 'multer';
-import path from 'path'; // Node's built-in path module
+// server/middleware/uploadMiddleware.js
 
-// 1. Setup Storage Destination and File Naming
+import multer from 'multer';
+import path from 'path';
+
+// --- 1. Define Storage Destination and Filename ---
 const storage = multer.diskStorage({
-  // Define where the files should be stored (must create this folder!)
-  destination: (req, file, cb) => {
-    cb(null, 'server/uploads/'); 
+  // Define where files should be saved (relative to the server root)
+  destination(req, file, cb) {
+    // NOTE: Ensure the 'uploads' directory exists in your server folder
+    cb(null, 'uploads/'); 
   },
-  // Define the file name format: fieldname-timestamp.ext
-  filename: (req, file, cb) => {
-    // Get the original file extension
-    const ext = path.extname(file.originalname);
-    // Create a unique name
-    cb(null, `${file.fieldname}-${Date.now()}${ext}`);
+  // Define how files should be named
+  filename(req, file, cb) {
+    // Example: post-1700000000000.jpg
+    cb(
+      null,
+      `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`
+    );
   },
 });
 
-// 2. Setup File Filter (Validation)
+// --- 2. Define File Filter (Optional: Only allow images) ---
 const fileFilter = (req, file, cb) => {
-  // Allow only jpeg, jpg, and png files
-  if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'image/jpg') {
+  if (file.mimetype.startsWith('image')) {
     cb(null, true);
   } else {
-    // Reject other file types
-    cb(new Error('Only JPEG, JPG, and PNG files are allowed!'), false);
+    // Pass false to reject file, and provide error later if needed
+    cb(null, false); 
   }
 };
 
-// 3. Create the upload instance
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 1024 * 1024 * 5, // Limit files to 5MB
-  }
+// --- 3. Create Multer Instance and Export it as a NAMED EXPORT ---
+export const upload = multer({
+  storage,
+  fileFilter,
+  // Limit file size (optional, e.g., 2MB)
+  limits: { fileSize: 1024 * 1024 * 2 }, 
 });
-
-// We'll export the single image handler
-export const uploadSingleImage = upload.single('featuredImage');

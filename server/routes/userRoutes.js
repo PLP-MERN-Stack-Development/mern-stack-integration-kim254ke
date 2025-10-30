@@ -1,20 +1,18 @@
+// server/routes/userRoutes.js
+
 import express from 'express';
-// FIX: Changed from 'import userController from ...' to wildcard import
-import * as userController from '../controllers/userController.js';
+// Assuming your controller functions are exported as named exports
+import { 
+  registerUser, 
+  loginUser 
+} from '../controllers/userController.js'; 
 
 const router = express.Router();
 
-// @route   POST /api/users/register
-// @desc    Register a new user
-// @access  Public
-router.post('/register', userController.registerUser);
+// Define routes using the imported controller functions
+router.post('/register', registerUser);
+router.post('/login', loginUser);
 
-// @route   POST /api/users/login
-// @desc    Authenticate user & get token
-// @access  Public
-router.post('/login', userController.loginUser);
-
-// You can add a protected route here later to get user profile details
-// router.get('/profile', protect, userController.getUserProfile); 
-
+// This is the CRUCIAL line that provides the 'default' export 
+// expected by your server.js file.
 export default router;

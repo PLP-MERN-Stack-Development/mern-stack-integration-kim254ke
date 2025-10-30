@@ -1,113 +1,153 @@
+// client/src/services/api.js
 import axios from 'axios';
 
-// Set up the base URL for the API
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:5000/api'; // Adjust for production if needed
 
-// Create a re-usable axios instance
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Request interceptor to attach JWT token to every request
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
-
-// Response interceptor to handle data extraction
-const responseInterceptor = (response) => {
-    // Standardize data retrieval for successful responses
-    // NOTE: We assume the server returns { success: true, data: X }
-    return response.data.data;
-};
-
-// --- AUTH SERVICE ---
-export const authService = {
-  // Registers a new user
-  register: async (username, email, password) => {
-    const res = await api.post('/auth/register', { username, email, password });
-    return res.data; // Return the full response for token storage
-  },
-
-  // Logs in a user
-  login: async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
-    return res.data; // Return the full response for token storage
-  },
-};
-
-
-// --- CATEGORY SERVICE ---
-export const categoryService = {
-  getAllCategories: async () => {
-    const response = await api.get('/categories');
-    return responseInterceptor(response);
-  },
-};
-
-// --- POST SERVICE ---
+// ----------------------------------------------------------------------
+// 📹 POST SERVICE
+// ----------------------------------------------------------------------
 export const postService = {
-  getAllPosts: async (page = 1, limit = 10, categoryId = null, search = '') => {
-    // Construct query parameters
-    const params = new URLSearchParams({ page, limit, search });
-    if (categoryId) {
-      params.append('category', categoryId);
-    }
-    const response = await api.get(`/posts?${params.toString()}`);
-    // The getAllPosts endpoint returns an object with { posts: [], totalPages: 1 }, 
-    // so we return the whole data object, not just response.data.data
-    return response.data; 
-  },
-  getPost: async (id) => {
-    const response = await api.get(`/posts/${id}`);
-    return responseInterceptor(response);
-  },
-  createPost: async (postData) => {
-    const response = await api.post('/posts', postData);
-    return responseInterceptor(response);
-  },
-  uploadImage: async (file) => {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    // Override content-type for image upload
-    const response = await api.post('/posts/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
+  async getAllPosts(params = {}) {
+    // params can include: { category, search, page, limit }
+    const response = await axios.get(`${API_URL}/posts`, {
+      params: {
+        category: params.category || '',
+        search: params.search || '',
+        page: params.page || 1,
+        limit: params.limit || 10,
       },
     });
-    return responseInterceptor(response);
-  }
+    return response.data; // Return full response including pagination
+  },
+
+  async getPostById(id, token = null) {
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const response = await axios.get(`${API_URL}/posts/${id}`, { headers });
+    return response.data;
+  },
+
+  async createPost(formData, token) {
+    const response = await axios.post(`${API_URL}/posts`, formData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+
+  async updatePost(id, formData, token) {
+    const response = await axios.put(`${API_URL}/posts/${id}`, formData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+
+  async deletePost(id, token) {
+    const response = await axios.delete(`${API_URL}/posts/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+};
+
+// ----------------------------------------------------------------------
+// 📹 CATEGORY SERVICE
+// ----------------------------------------------------------------------
+export const categoryService = {
+  async getAllCategories() {
+    const response = await axios.get(`${API_URL}/categories`);
+    return response.data;
+  },
+
+  // ✅ Fixed to accept categoryData object with name and slug
+  async createCategory(categoryData, token) {
+    const response = await axios.post(
+      `${API_URL}/categories`,
+      categoryData,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
+  },
+
+  async updateCategory(id, categoryData, token) {
+    const response = await axios.put(
+      `${API_URL}/categories/${id}`,
+      categoryData,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
+  },
+
+  async deleteCategory(id, token) {
+    const response = await axios.delete(`${API_URL}/categories/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+};
+
+// ----------------------------------------------------------------------
+// 📹 AUTH SERVICE (Fixed to match backend routes)
+// ----------------------------------------------------------------------
+export const authService = {
+  async registerUser(userData) {
+    // ✅ Corrected path — "auth" not "users"
+    const response = await axios.post(`${API_URL}/auth/register`, userData);
+    return response.data;
+  },
+
+  async loginUser(credentials) {
+    // ✅ Corrected path — "auth" not "users"
+    const response = await axios.post(`${API_URL}/auth/login`, credentials);
+    return response.data;
+  },
+
+  async getProfile(token) {
+    const response = await axios.get(`${API_URL}/auth/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
 };
 
 
-// --- COMMENT SERVICE (CORRECTED) ---
+// ----------------------------------------------------------------------
+// 📹 COMMENT SERVICE
+// ----------------------------------------------------------------------
 export const commentService = {
-  /**
-   * @desc Fetches all comments for a given post ID.
-   * @route GET /api/posts/:postId/comments
-   */
-  getComments: async (postId) => {
-    // Corrected to use RESTful path: /posts/:postId/comments
-    const response = await api.get(`/posts/${postId}/comments`);
-    return responseInterceptor(response);
+  async getCommentsByPostId(postId) {
+    const response = await axios.get(`${API_URL}/comments/${postId}`);
+    return response.data;
   },
 
-  /**
-   * @desc Submits a new comment (requires authentication via interceptor)
-   * @route POST /api/posts/:postId/comments
-   */
-  createComment: async (postId, text, author) => {
-    // Corrected to use RESTful path and 'text' payload field
-    const response = await api.post(`/posts/${postId}/comments`, { text, author });
-    return responseInterceptor(response);
+  // ✅ Added alias for backwards compatibility
+  async createComment(postId, commentData, token) {
+    const response = await axios.post(
+      `${API_URL}/comments/${postId}`,
+      commentData,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    );
+    return response.data;
+  },
+
+  // ✅ Alias - both names work now
+  async addComment(postId, commentData, token) {
+    return this.createComment(postId, commentData, token);
+  },
+
+  async updateComment(id, content, token) {
+    const response = await axios.put(
+      `${API_URL}/comments/${id}`,
+      { content },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
+  },
+
+  async deleteComment(id, token) {
+    const response = await axios.delete(`${API_URL}/comments/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
   },
 };

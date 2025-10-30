@@ -1,48 +1,69 @@
-import express from "express";
-import cors from "cors";
-import morgan from "morgan";
-import path from "path";
-import dotenv from "dotenv";
-import connectDB from "./config/db.js"; // ✅ use dedicated DB connection file
+import express from 'express';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import mongoose from 'mongoose';
+import path from 'path';
+import userRoutes from './routes/userRoutes.js'; 
+import postRoutes from './routes/postRoutes.js';
+import categoryRoutes from './routes/categories.js'; 
+import commentRoutes from './routes/comments.js'; 
+import { errorHandler, notFound } from './middleware/errorMiddleware.js'; 
 
-// --- Load environment variables ---
+// Load environment variables from .env file
 dotenv.config();
 
-// --- Initialize app ---
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// --- Connect to MongoDB ---
+// --- 1. Database Connection ---
+const connectDB = async () => {
+    try {
+        const conn = await mongoose.connect(process.env.MONGO_URI);
+        console.log(`MongoDB Connected: ${conn.connection.host}`);
+    } catch (error) {
+        console.error(`Error: ${error.message}`);
+        process.exit(1);
+    }
+};
+
 connectDB();
 
-// --- Middleware ---
-app.use(cors());
-app.use(express.json());
-app.use(morgan("dev"));
+// --- 2. Middleware Setup ---
+// Enable CORS for frontend connection
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true
+}));
 
-// --- Static folder setup for uploads ---
-const __dirname = path.resolve();
-app.use("/uploads", express.static(path.join(__dirname, "server/uploads")));
+// Middleware to parse JSON request bodies
+app.use(express.json()); 
+// Middleware to parse form data (for posts with images)
+app.use(express.urlencoded({ extended: true })); 
 
-// --- Routes Imports ---
-import userRoutes from "./routes/userRoutes.js";
-import categoryRoutes from "./routes/categories.js";
-import postRoutes from "./routes/posts.js";
-import commentRoutes from "./routes/comments.js";
+// Make the 'uploads' folder publicly accessible
+const __dirname = path.resolve(); 
+app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
 
-// --- Route Configuration ---
-app.use("/api/auth", userRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/posts", postRoutes);
-app.use("/api/comments", commentRoutes);
+// --- 3. Route Definitions ---
+// User authentication and registration routes
+app.use('/api/auth', userRoutes);
+// Blog post routes
+app.use('/api/posts', postRoutes); 
+// Category management routes
+app.use('/api/categories', categoryRoutes);
+// Comment routes
+app.use('/api/comments', commentRoutes);
 
-// --- Root Route ---
-app.get("/", (req, res) => {
-  res.send("✅ Blog App Backend is running successfully...");
+// Basic status check for the root path
+app.get('/', (req, res) => {
+    res.send(`API is running on port ${PORT}...`);
 });
 
-// --- Start Server ---
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+// --- 4. Error Middleware ---
+// Custom 404 handler for routes not found
+app.use(notFound);
+// General error handler (must be last middleware)
+app.use(errorHandler);
+
+// --- 5. Start Server ---
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
