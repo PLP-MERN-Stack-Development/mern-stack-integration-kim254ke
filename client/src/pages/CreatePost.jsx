@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { postService, categoryService } from '../services/api';
-import useApi from '../hooks/useApi';
 import { useAuth } from '../context/AuthContext';
+import useApi from '../hooks/useApi';
 
-// Helper: generate slug
+// Helper function to generate slug
 const generateSlug = (title) =>
   title
     .toLowerCase()
@@ -19,8 +19,12 @@ export default function CreatePost() {
   const navigate = useNavigate();
   const { token, isAuthenticated } = useAuth();
 
-  const { data: categories, loading: categoriesLoading, refetch: refetchCategories } =
-    useApi(() => categoryService.getAllCategories(), []);
+  const {
+    data: categories,
+    loading: categoriesLoading,
+    error: categoriesError,
+    refetch: refetchCategories
+  } = useApi(categoryService.getAllCategories, []);
 
   const [apiError, setApiError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,12 +33,17 @@ export default function CreatePost() {
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [categoryError, setCategoryError] = useState(null);
 
-  // Redirect if not logged in
   useEffect(() => {
     if (!isAuthenticated) navigate('/login');
   }, [isAuthenticated, navigate]);
 
-  // Handle category creation
+  const safeRefetchCategories = useCallback(async () => {
+    if (typeof refetchCategories === 'function') {
+      await refetchCategories();
+    }
+  }, [refetchCategories]);
+
+  // Create new category
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) {
       setCategoryError('Category name is required');
@@ -51,14 +60,14 @@ export default function CreatePost() {
       };
 
       const result = await categoryService.createCategory(categoryData, token);
-      await refetchCategories();
+      await safeRefetchCategories();
 
       setValue('category', result.data._id);
       setNewCategoryName('');
       setShowNewCategoryInput(false);
     } catch (err) {
       console.error('Category creation failed:', err);
-      setCategoryError(err.message || 'Failed to create category');
+      setCategoryError(err.response?.data?.message || 'Failed to create category');
     } finally {
       setIsCreatingCategory(false);
     }
@@ -82,16 +91,16 @@ export default function CreatePost() {
       formData.append('content', vals.content);
       formData.append('category', vals.category);
 
+      // ✅ No file size restriction
       if (vals.featuredImage?.[0]) {
         formData.append('featuredImage', vals.featuredImage[0]);
       }
 
-      // ✅ No need to send user._id — backend infers it from token
       const res = await postService.createPost(formData, token);
       navigate(`/post/${res._id}`);
     } catch (err) {
       console.error('Post creation failed:', err);
-      setApiError(err.message || 'Failed to create post. Please try again.');
+      setApiError(err.response?.data?.message || 'Failed to create post. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -101,7 +110,9 @@ export default function CreatePost() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white shadow-xl rounded-xl my-8">
-      <h2 className="text-3xl font-extrabold text-gray-900 mb-6 border-b pb-3">Write a New Blog Post</h2>
+      <h2 className="text-3xl font-extrabold text-gray-900 mb-6 border-b pb-3">
+        Write a New Blog Post
+      </h2>
 
       {apiError && (
         <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg" role="alert">
@@ -158,7 +169,6 @@ export default function CreatePost() {
 
           {errors.category && <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>}
 
-          {/* Inline new category */}
           {showNewCategoryInput && (
             <div className="mt-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
               <label htmlFor="newCategory" className="block text-sm font-medium text-gray-700 mb-2">
@@ -188,7 +198,7 @@ export default function CreatePost() {
           )}
         </div>
 
-        {/* Featured Image */}
+        {/* Featured Image (No size restriction) */}
         <div>
           <label htmlFor="featuredImage" className="block text-sm font-medium text-gray-700 mb-1">
             Featured Image (Optional)
